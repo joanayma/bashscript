@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+
+help="usage: $0 <host_url> <directory_path> 
+ - example:
+    host_url: www.example.com
+    directory_path: /var/www/html/api/uname"
+
+TODO=""" 
+TODO Needs some security, parameters and variables improvements
+"""
+
+if [[ $1 =~ ^[a-zA-Z0-9\.\-]+$ ]] && [[ "x$1" != "x" ]]; then
+     template_url=$1
+else
+     if [[ "x$1" == "x" ]]; then
+         echo "url not defined" && echo "$help" && exit 1
+     fi
+     echo "not a valid url host" && echo "$help" && exit 1
+fi
+
+if [[ ! $template_path =~ ^/var/www/html ]] && [[ ! $template_path =~ ^/ ]] ; then
+     template_path="/var/www/html/$template_path"
+fi
+
+if [[ $2 =~ ^[a-zA-Z0-9\.\/-]+$ ]] && [[ "x$2" != "x" ]]; then
+     template_path=$2
+else
+     if [[ "x$2" == "x" ]]; then
+         echo "path not defined" && echo "$help" && exit 1
+     fi
+     echo "not a valid path" && echo "$help" && exit 1
+fi
+
+template_virtualhost="<VirtualHost *:80>
+	ServerAdmin webmaster@$template_url
+	ServerName $template_url
+	DocumentRoot $template_path
+	
+	<Directory />
+                Options FollowSymLinks
+                AllowOverride None
+        </Directory>
+        <Directory $template_path>
+                Options Indexes FollowSymLinks MultiViews
+                AllowOverride all
+                Order allow,deny
+                allow from all
+        </Directory>
+	
+	ScriptAlias /cgi-bin/ /usr/lib/cgi-bin/
+        <Directory "/usr/lib/cgi-bin">
+                AllowOverride None
+                Options +ExecCGI -MultiViews +SymLinksIfOwnerMatch
+                Order allow,deny
+                Allow from all
+        </Directory>
+
+	ErrorLog \${APACHE_LOG_DIR}/$template_url-error.log
+
+	# Possible values include: debug, info, notice, warn, error, crit,
+	# alert, emerg.
+	LogLevel warn
+
+	CustomLog \${APACHE_LOG_DIR}/$template_url-access.log combined
+</VirtualHost>"
+
+if [[ ! -f /etc/apache2/sites-available/$template_url.conf ]]; then
+     echo "creating site file"
+else
+     echo "recreating site file"
+fi
+
+cat > /etc/apache2/sites-available/$template_url.conf <<< "$template_virtualhost"
+
+if a2ensite $template_url; then
+   echo "site enable ok"
+   mkdir -p $template_path
+    if apache2ctl -t; then
+        echo "test ok"
+        if systemctl reload apache2; then
+            echo "apache2 reloaded ok"
+        else
+            echo "apache2 reload failed! Rolling back..."
+            rm -f /etc/apache2/sites-available/$template_url.conf
+            a2dissite $template_url
+            if systemctl reload apache2; then
+                echo "apache2 ok but site not created."
+                exit 1
+            fi
+        fi
+    else
+        echo "error on apache config"
+        rm -f /etc/apache2/sites-available/$template_url
+        a2dissite $template_url
+        exit 1
+    fi
+else
+   echo "error on enable site"
+   exit 1
+fi
+
