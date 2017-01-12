@@ -25,6 +25,6 @@ set ftp:mode-z-level 9 #only =>4.7.0
 open $HOST
 user $USER $PASS
 lcd $TARGETFOLDER
-mirror -vv --use-cache --parallel=100 --depth-first --only-newer --exclude="som[eE]\.regex$" --exclude="^(use|regex)+" $SOURCEFOLDER $TARGETFOLDER
+mirror -vv --delete --use-cache --parallel=100 --depth-first --only-newer --exclude="som[eE]\.regex$" --exclude="^(use|regex)+" $SOURCEFOLDER $TARGETFOLDER
 bye
 " >> /var/log/sync-ftp.log
